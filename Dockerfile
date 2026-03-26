@@ -22,6 +22,6 @@ ENV EMBEDDING_MODEL=models/BAAI/bge-large-zh-v1.5
 ENV TRANSFORMERS_OFFLINE=1
 ENV HF_DATASETS_OFFLINE=1
 
-EXPOSE 8000
+EXPOSE 8003
 
-CMD [".venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD [".venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
