@@ -1,13 +1,19 @@
+# ---- build stage ----
+FROM python:3.10-slim AS builder
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# ---- runtime stage ----
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install uv
-RUN pip install --no-cache-dir uv
-
-# Install dependencies (cached layer)
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy application source
 COPY main.py chunker.py ./
@@ -24,4 +30,4 @@ ENV HF_DATASETS_OFFLINE=1
 
 EXPOSE 8003
 
-CMD [".venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["/app/.venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
