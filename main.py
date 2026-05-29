@@ -56,6 +56,45 @@ def embed(request: EmbedRequest):
     )
 
 
+class DifyEmbedRequest(BaseModel):
+    model: str
+    input: List[str]
+
+
+class DifyEmbeddingData(BaseModel):
+    object: str = "embedding"
+    embedding: List[float]
+    index: int
+
+
+class DifyUsage(BaseModel):
+    prompt_tokens: int = 0
+    total_tokens: int = 0
+
+
+class DifyEmbedResponse(BaseModel):
+    object: str = "list"
+    data: List[DifyEmbeddingData]
+    model: str
+    usage: DifyUsage = DifyUsage()
+
+
+@app.post("/v1/embeddings", response_model=DifyEmbedResponse)
+def dify_embed(request: DifyEmbedRequest):
+    if not request.input:
+        raise HTTPException(status_code=400, detail="input must not be empty")
+    vectors = model.encode(
+        request.input,
+        normalize_embeddings=True,
+        show_progress_bar=False,
+    )
+    data = [
+        DifyEmbeddingData(embedding=v.tolist(), index=i)
+        for i, v in enumerate(vectors)
+    ]
+    return DifyEmbedResponse(data=data, model=request.model)
+
+
 class ChunkItem(BaseModel):
     text: str
     char_count: int
