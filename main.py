@@ -5,25 +5,30 @@ from typing import List
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import CrossEncoder, SentenceTransformer
 
 from chunker import chunk_text
 
 load_dotenv()
 
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
+RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
 
 model: SentenceTransformer = None
+rerank_model: CrossEncoder = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global model
-    print(f"Loading model: {EMBEDDING_MODEL}")
+    global model, rerank_model
+    print(f"Loading embedding model: {EMBEDDING_MODEL}")
     model = SentenceTransformer(EMBEDDING_MODEL)
     print(f"Embedding dimension: {model.get_sentence_embedding_dimension()}")
+    print(f"Loading rerank model: {RERANK_MODEL}")
+    rerank_model = CrossEncoder(RERANK_MODEL)
     yield
     model = None
+    rerank_model = None
 
 
 app = FastAPI(title="Embedding API", lifespan=lifespan)
@@ -93,6 +98,54 @@ def dify_embed(request: DifyEmbedRequest):
         for i, v in enumerate(vectors)
     ]
     return DifyEmbedResponse(data=data, model=request.model)
+
+
+class DifyRerankRequest(BaseModel):
+    model: str
+    query: str
+    documents: List[str]
+    top_n: int | None = None
+
+
+class DifyRerankDocument(BaseModel):
+    text: str
+
+
+class DifyRerankResult(BaseModel):
+    index: int
+    document: DifyRerankDocument
+    relevance_score: float
+
+
+class DifyRerankResponse(BaseModel):
+    model: str
+    results: List[DifyRerankResult]
+
+
+@app.post("/v1/rerank", response_model=DifyRerankResponse)
+def dify_rerank(request: DifyRerankRequest):
+    if not request.query:
+        raise HTTPException(status_code=400, detail="query must not be empty")
+    if not request.documents:
+        raise HTTPException(status_code=400, detail="documents must not be empty")
+
+    pairs = [(request.query, doc) for doc in request.documents]
+    scores = rerank_model.predict(pairs, show_progress_bar=False)
+
+    indexed = list(enumerate(scores.tolist()))
+    indexed.sort(key=lambda x: x[1], reverse=True)
+
+    top_n = request.top_n or len(indexed)
+    results = [
+        DifyRerankResult(
+            index=orig_idx,
+            document=DifyRerankDocument(text=request.documents[orig_idx]),
+            relevance_score=float(score),
+        )
+        for orig_idx, score in indexed[:top_n]
+    ]
+
+    return DifyRerankResponse(model=request.model, results=results)
 
 
 class ChunkItem(BaseModel):
