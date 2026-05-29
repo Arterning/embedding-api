@@ -11,12 +11,12 @@ RUN uv sync --frozen --no-dev --no-cache
 # Copy application source
 COPY main.py chunker.py ./
 
-# Copy model files (expected at models/BAAI/bge-large-zh-v1.5/)
+# Copy model files (expected at models/BAAI/bge-reranker-v2-m3/)
 COPY models/ ./models/
 
 # Point to the local model path; override at runtime if needed
-ENV EMBEDDING_MODEL=models/BAAI/bge-large-zh-v1.5
-ENV RERANK_MODEL=
+ENV RERANK_MODEL=models/BAAI/bge-reranker-v2-m3
+ENV EMBEDDING_MODEL=
 
 # Prevent HuggingFace from attempting network downloads at runtime
 ENV TRANSFORMERS_OFFLINE=1

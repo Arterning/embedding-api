@@ -11,8 +11,8 @@ from chunker import chunk_text
 
 load_dotenv()
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
-RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
+RERANK_MODEL = os.getenv("RERANK_MODEL")
 
 model: SentenceTransformer = None
 rerank_model: CrossEncoder = None
@@ -21,11 +21,13 @@ rerank_model: CrossEncoder = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, rerank_model
-    print(f"Loading embedding model: {EMBEDDING_MODEL}")
-    model = SentenceTransformer(EMBEDDING_MODEL)
-    print(f"Embedding dimension: {model.get_sentence_embedding_dimension()}")
-    print(f"Loading rerank model: {RERANK_MODEL}")
-    rerank_model = CrossEncoder(RERANK_MODEL)
+    if EMBEDDING_MODEL:
+        print(f"Loading embedding model: {EMBEDDING_MODEL}")
+        model = SentenceTransformer(EMBEDDING_MODEL)
+        print(f"Embedding dimension: {model.get_sentence_embedding_dimension()}")
+    if RERANK_MODEL:
+        print(f"Loading rerank model: {RERANK_MODEL}")
+        rerank_model = CrossEncoder(RERANK_MODEL)
     yield
     model = None
     rerank_model = None
@@ -49,6 +51,8 @@ class EmbedResponse(BaseModel):
 def embed(request: EmbedRequest):
     if not request.texts:
         raise HTTPException(status_code=400, detail="texts must not be empty")
+    if model is None:
+        raise HTTPException(status_code=503, detail="embedding model not loaded")
     vectors = model.encode(
         request.texts,
         normalize_embeddings=request.normalize,
@@ -88,6 +92,8 @@ class DifyEmbedResponse(BaseModel):
 def dify_embed(request: DifyEmbedRequest):
     if not request.input:
         raise HTTPException(status_code=400, detail="input must not be empty")
+    if model is None:
+        raise HTTPException(status_code=503, detail="embedding model not loaded")
     vectors = model.encode(
         request.input,
         normalize_embeddings=True,
@@ -128,6 +134,8 @@ def dify_rerank(request: DifyRerankRequest):
         raise HTTPException(status_code=400, detail="query must not be empty")
     if not request.documents:
         raise HTTPException(status_code=400, detail="documents must not be empty")
+    if rerank_model is None:
+        raise HTTPException(status_code=503, detail="rerank model not loaded")
 
     pairs = [(request.query, doc) for doc in request.documents]
     scores = rerank_model.predict(pairs, show_progress_bar=False)
@@ -173,6 +181,8 @@ def chunk_and_embed(request: ChunkEmbedRequest):
         raise HTTPException(status_code=400, detail="text must not be empty")
     if request.max_chars < 10:
         raise HTTPException(status_code=400, detail="max_chars must be >= 10")
+    if model is None:
+        raise HTTPException(status_code=503, detail="embedding model not loaded")
 
     chunks = chunk_text(request.text, max_chars=request.max_chars)
     if not chunks:
@@ -197,7 +207,11 @@ def chunk_and_embed(request: ChunkEmbedRequest):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": EMBEDDING_MODEL}
+    return {
+        "status": "ok",
+        "embedding_model": EMBEDDING_MODEL,
+        "rerank_model": RERANK_MODEL,
+    }
 
 
 if __name__ == "__main__":
