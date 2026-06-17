@@ -16,7 +16,7 @@ COPY models/ ./models/
 
 # Point to the local model path; override at runtime if needed
 ENV EMBEDDING_MODEL=models/BAAI/bge-m3
-ENV RERANK_MODEL=models/BAAI/bge-reranker-v2-m3
+ENV RERANK_MODEL=
 
 # Prevent HuggingFace from attempting network downloads at runtime
 ENV TRANSFORMERS_OFFLINE=1
