@@ -1,9 +1,15 @@
 """
 直接运行测试 chunk_and_embed 逻辑，使用真实模型。
-运行方式: uv run python test_chunk_embed.py
+运行方式: uv run python -m test.test_chunk_embed
 """
 
 import os
+import sys
+from pathlib import Path
+
+# 把项目根目录加入 sys.path，保证 `from chunker import ...` 可用
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from chunker import chunk_text
