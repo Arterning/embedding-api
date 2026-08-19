@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-docker build -t fba-embed .
+docker build -t embedding_api .
