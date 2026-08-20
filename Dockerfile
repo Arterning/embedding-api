@@ -14,8 +14,8 @@ RUN uv sync --frozen --no-dev --no-cache \
     --index https://pypi.tuna.tsinghua.edu.cn/simple \
     --extra-index-url https://mirrors.aliyun.com/pypi/simple/
 
-# Copy application source
-COPY main.py chunker.py ./
+# Copy application source (all top-level .py files; new modules need no Dockerfile change)
+COPY *.py ./
 
 # Copy model files (expected at models/BAAI/bge-m3/)
 COPY models/ ./models/
